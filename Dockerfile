@@ -5,7 +5,7 @@ LABEL maintainer="P4 Developers <p4-dev@lists.p4.org>"
 # Default to using 2 make jobs, which is a good default for CI. If you're
 # building locally or you know there are more cores available, you may want to
 # override this.
-ARG MAKEFLAGS=-j2
+ARG MAKEFLAGS=-j4
 # Useful environment variable for scripts.
 ARG IN_DOCKER=TRUE
 # Select the type of image we're building. Use `build` for a normal build, which
@@ -49,6 +49,12 @@ ENV ASAN_OPTIONS=print_stacktrace=1:detect_leaks=0
 
 # Delegate the build to tools/ci-build.
 COPY . /p4c/
-RUN /p4c/tools/ci-build.sh
+# RUN /p4c/tools/ci-build.sh
+RUN /p4c/tools/ci-build/ci-dependencies.sh
+RUN /p4c/tools/ci-build/bmv2.sh
+RUN /p4c/tools/ci-build/ebpf.sh
+RUN /p4c/tools/ci-build/p4tc.sh
+RUN /p4c/tools/ci-build/ci-build.sh
+
 # Set the workdir after building p4c.
 WORKDIR /p4c/
