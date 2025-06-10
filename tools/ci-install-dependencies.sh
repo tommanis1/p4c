@@ -6,12 +6,12 @@ set -e  # Exit on error.
 set -x  # Make command execution verbose
 
 THIS_DIR=$( cd -- "$( dirname -- "${0}" )" &> /dev/null && pwd )
-P4C_DIR=$(readlink -f ${THIS_DIR}/../..)
+P4C_DIR=$(readlink -f ${THIS_DIR}/..)
 
 # Default to using 2 make jobs, which is a good default for CI. If you're
 # building locally or you know there are more cores available, you may want to
 # override this.
-: "${MAKEFLAGS:=-j4}"
+: "${MAKEFLAGS:=-j2}"
 # Select the type of image we're building. Use `build` for a normal build, which
 # is optimized for image size. Use `test` if this image will be used for
 # testing; in this case, the source code and build-only dependencies will not be
@@ -79,6 +79,44 @@ if [ "$IN_DOCKER" == "TRUE" ]; then
   function sudo() { command "$@"; }
 fi
 
+
+# ! ------  BEGIN CORE -----------------------------------------------
+P4C_DEPS="bison \
+          build-essential \
+          ccache \
+          flex \
+          ninja-build \
+          g++ \
+          git \
+          lld \
+          libboost-dev \
+          libboost-graph-dev \
+          libboost-iostreams-dev \
+          libfl-dev \
+          pkg-config \
+          python3 \
+          python3-pip \
+          python3-setuptools \
+          tcpdump"
+
+# TODO: Remove this check once 18.04 is deprecated.
+if [[ "${DISTRIB_RELEASE}" != "18.04" ]] ; then
+  P4C_DEPS+=" cmake"
+fi
+
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends ${P4C_DEPS}
+sudo pip3 install --upgrade pip
+sudo pip3 install -r ${P4C_DIR}/requirements.txt
+
+if [ "${BUILD_GENERATOR,,}" == "ninja" ] && [ ! $(command -v ninja) ]
+then
+    echo "Selected ninja as build generator, but ninja could not be found."
+    exit 1
+fi
+
+# ! ------  END CORE -----------------------------------------------
+
   # TODO: Remove this check once 18.04 is deprecated.
 if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
   ccache --set-config cache_dir=.ccache
@@ -87,7 +125,137 @@ if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
 fi
 ccache --set-config max_size=1G
 
+# ! ------  BEGIN BMV2 -----------------------------------------------
+function build_bmv2() {
+  # TODO: Remove this check once 18.04 is deprecated.
+  if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
+    P4C_RUNTIME_DEPS_BOOST="libboost-graph1.65.1 libboost-iostreams1.65.1"
+  else
+    P4C_RUNTIME_DEPS_BOOST="libboost-graph1.7* libboost-iostreams1.7*"
+  fi
 
+  P4C_RUNTIME_DEPS="cpp \
+                    ${P4C_RUNTIME_DEPS_BOOST} \
+                    libgc1* \
+                    libgmp-dev \
+                    libnanomsg-dev"
+
+  # TODO: Remove this check once 18.04 is deprecated.
+  if [[ "${DISTRIB_RELEASE}" == "18.04" ]] || [[ "$(which simple_switch 2> /dev/null)" != "" ]] ; then
+    # Use GCC 9 from https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
+    sudo apt-get update && sudo apt-get install -y software-properties-common
+    sudo add-apt-repository -uy ppa:ubuntu-toolchain-r/test
+    P4C_RUNTIME_DEPS+=" gcc-9 g++-9"
+    export CC=gcc-9
+    export CXX=g++-9
+  else
+   sudo apt-get install -y wget ca-certificates
+    # Add the p4lang opensuse repository.
+    echo "deb http://download.opensuse.org/repositories/home:/p4lang/xUbuntu_${DISTRIB_RELEASE}/ /" | sudo tee /etc/apt/sources.list.d/home:p4lang.list
+    curl -fsSL https://download.opensuse.org/repositories/home:p4lang/xUbuntu_${DISTRIB_RELEASE}/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_p4lang.gpg > /dev/null
+    P4C_RUNTIME_DEPS+=" p4lang-bmv2"
+  fi
+
+  sudo apt-get update && sudo apt-get install -y --no-install-recommends ${P4C_RUNTIME_DEPS}
+
+  if [[ "${DISTRIB_RELEASE}" != "18.04" ]] ; then
+    # To run PTF nanomsg tests. Not available on 18.04.
+    sudo pip3 install nnpy
+  fi
+}
+
+if [[ "${ENABLE_BMV2}" == "ON" ]] ; then
+  build_bmv2
+fi
+# ! ------  END BMV2 -----------------------------------------------
+
+# ! ------  BEGIN EBPF -----------------------------------------------
+function build_ebpf() {
+  P4C_EBPF_DEPS="libpcap-dev \
+                 libelf-dev \
+                 zlib1g-dev \
+                 llvm \
+                 clang \
+                 iproute2 \
+                 iptables \
+                 net-tools"
+
+  sudo apt-get install -y --no-install-recommends ${P4C_EBPF_DEPS}
+}
+
+function install_ptf_ebpf_test_deps() (
+    P4C_PTF_PACKAGES="gcc-multilib \
+                             python3-six \
+                             libgmp-dev \
+                             libjansson-dev"
+    sudo apt-get install -y --no-install-recommends ${P4C_PTF_PACKAGES}
+
+    git clone --depth 1 --recursive --branch v0.3.1 https://github.com/NIKSS-vSwitch/nikss /tmp/nikss
+    pushd /tmp/nikss
+    ./build_libbpf.sh
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -G "${BUILD_GENERATOR}" ..
+    cmake --build . -- -j $(nproc)
+    sudo cmake --install .
+
+    # install bpftool
+    git clone --recurse-submodules --branch v7.3.0 https://github.com/libbpf/bpftool.git /tmp/bpftool
+    cd /tmp/bpftool/src
+    make "-j$(nproc)"
+    sudo make install
+    popd
+)
+
+if [[ "${ENABLE_EBPF}" == "ON" ]] ; then
+  build_ebpf
+  if [[ "${INSTALL_PTF_EBPF_DEPENDENCIES}" == "ON" ]] ; then
+    install_ptf_ebpf_test_deps
+  fi
+fi
+# ! ------  END EBPF -----------------------------------------------
+
+# ! ------  BEGIN P4TC -----------------------------------------------
+function build_p4tc() {
+  P4TC_DEPS="libpcap-dev \
+             libelf-dev \
+             zlib1g-dev \
+             gcc-multilib \
+             net-tools \
+             flex \
+             libelf-dev \
+             libmnl-dev \
+             pkg-config \
+             xtables-addons-source \
+             bridge-utils \
+             python3 \
+             python3-pip \
+             python3-venv \
+             python3-argcomplete \
+             wget \
+             qemu qemu-system-x86"
+
+  sudo apt-get install -y --no-install-recommends ${P4TC_DEPS}
+
+  wget https://apt.llvm.org/llvm.sh
+  sudo chmod +x llvm.sh
+  sudo ./llvm.sh 15
+  rm llvm.sh
+
+  git clone --recurse-submodules https://github.com/arighi/virtme-ng.git ${P4C_DIR}/backends/tc/runtime/virtme-ng
+  pushd ${P4C_DIR}/backends/tc/runtime/virtme-ng
+  git checkout v1.19
+  python3 -m venv ${P4C_DIR}/backends/tc/runtime/virtme-ng
+  source ${P4C_DIR}/backends/tc/runtime/virtme-ng/bin/activate
+  pip install --upgrade pip
+  pip install .
+  deactivate
+  popd
+}
+if [[ "${ENABLE_P4TC}" == "ON" ]] ; then
+  build_p4tc
+fi
+# ! ------  END P4TC -----------------------------------------------
 
 # ! ------  BEGIN DPDK -----------------------------------------------
 function build_dpdk() {
@@ -163,11 +331,7 @@ if [ "$ENABLE_SANITIZERS" == "ON" ]; then
   CMAKE_FLAGS+="-DENABLE_GC=OFF"
   echo "Warning: building with ASAN and UBSAN sanitizers, GC must be disabled."
 fi
-if [ "${BUILD_GENERATOR,,}" == "ninja" ] && [ ! $(command -v ninja) ]
-then
-    echo "Selected ninja as build generator, but ninja could not be found."
-    exit 1
-fi
+
 # Run CMake in the build folder.
 if [ -e build ]; then /bin/rm -rf build; fi
 mkdir -p ${P4C_DIR}/build
@@ -176,7 +340,7 @@ cmake ${CMAKE_FLAGS} -G "${BUILD_GENERATOR}" ..
 
 # If CMAKE_ONLY is active, only run CMake. Do not build.
 if [ "$CMAKE_ONLY" == "OFF" ]; then
-  cmake --build . -- -j $(nproc) -DP4C_USE_PREINSTALLED_PROTOBUF=ON
+  cmake --build . -- -j $(nproc)
   sudo cmake --install .
   # Print ccache statistics after building
   ccache -p -s

@@ -59,8 +59,8 @@ bool ParserConverter::isFieldExpr(const IR::Expression *expr) {
 }
 
 cstring ParserConverter::jsonAssignment(const IR::Type *type, const IR::Expression *expr) {
-    if (type->is<IR::Type_HeaderUnion>()) return "assign_union" _cs;
-    if (type->is<IR::Type_Header>() || type->is<IR::Type_Struct>()) return "assign_header" _cs;
+    if (type->is<IR::Type_HeaderUnion>()) return "assign_union"_cs;
+    if (type->is<IR::Type_Header>() || type->is<IR::Type_Struct>()) return "assign_header"_cs;
     if (auto ts = type->to<IR::Type_Stack>()) {
         auto et = ts->elementType;
         if (et->is<IR::Type_HeaderUnion>())
@@ -78,7 +78,7 @@ cstring ParserConverter::jsonAssignment(const IR::Type *type, const IR::Expressi
         // expression. These assignments will be handled by this if branch, using "set".
         return "set"_cs;
     else
-        return "assign" _cs;
+        return "assign"_cs;
 }
 
 Util::IJson *ParserConverter::convertParserStatement(const IR::StatOrDecl *stat) {
@@ -655,5 +655,4 @@ bool ParserConverter::preorder(const IR::P4Parser *parser) {
     return false;
 }
 
-}  // namespace BMV2
 }  // namespace P4::BMV2
