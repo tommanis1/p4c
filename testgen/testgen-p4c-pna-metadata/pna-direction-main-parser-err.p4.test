@@ -1,0 +1,6 @@
+#! /usr/bin/env bash
+# Generated file, modify with care
+
+set -e
+cd /media/t/scratch/p4/p4c
+/media/t/scratch/p4/p4c/backends/p4tools/modules/testgen/p4testgen --target dpdk --arch pna --test-backend METADATA --strict --print-traces --seed 1000 --max-tests 10   --out-dir /media/t/scratch/p4/p4c/testgen/testgen-p4c-pna-metadata/pna-direction-main-parser-err.out "$@" /media/t/scratch/p4/p4c/testdata/p4_16_samples/pna-direction-main-parser-err.p4

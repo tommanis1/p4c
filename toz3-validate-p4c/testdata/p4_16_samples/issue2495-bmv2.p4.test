@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+# Generated file, modify with care
+
+cd /media/t/scratch/p4/p4c
+/media/t/scratch/p4/p4c/extensions/toz3/tools/run_validation_test.py /media/t/scratch/p4/p4c --validation-bin /media/t/scratch/p4/p4c/p4validate --compiler-bin /media/t/scratch/p4/p4c/p4test --build-dir /media/t/scratch/p4/p4c "$@" /media/t/scratch/p4/p4c/testdata/p4_16_samples/issue2495-bmv2.p4

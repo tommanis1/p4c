@@ -1,0 +1,12 @@
+#! /usr/bin/env bash
+# Generated file, modify with care
+
+set -e
+cd /media/t/scratch/p4/p4c
+/media/t/scratch/p4/p4c/backends/p4tools/modules/testgen/p4testgen --target bmv2 --arch v1model --test-backend PROTOBUF_IR --strict --print-traces --seed 1000 --max-tests 10 --track-coverage STATEMENTS --track-coverage TABLE_ENTRIES --track-coverage ACTIONS   --out-dir /media/t/scratch/p4/p4c/testgen/testgen-p4c-bmv2-protobuf-ir/issue635-bmv2.out "$@" /media/t/scratch/p4/p4c/testdata/p4_16_samples/issue635-bmv2.p4
+txtpbfiles=($(find /media/t/scratch/p4/p4c/testgen/testgen-p4c-bmv2-protobuf-ir/issue635-bmv2.out -name "*.txtpb"  | sort -n ))
+for item in ${txtpbfiles[@]}
+do
+	echo "Found ${item}"
+	/media/t/scratch/p4/p4c/_deps/protobuf-build/protoc --proto_path /media/t/scratch/p4/p4c/_deps/protobuf-src/src/ --proto_path /media/t/scratch/p4/p4c/backends/p4tools/modules/testgen/targets/bmv2/test/../proto --proto_path /media/t/scratch/p4/p4c/_deps/p4runtime-src/proto --proto_path /media/t/scratch/p4/p4c --proto_path /media/t/scratch/p4/p4c/control-plane --encode=p4testgen_ir.TestCase p4testgen_ir.proto < ${item} > /dev/null
+done
