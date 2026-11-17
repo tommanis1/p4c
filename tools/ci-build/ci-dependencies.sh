@@ -42,7 +42,7 @@ P4C_DIR=$(readlink -f ${THIS_DIR}/../..)
 # Only execute the steps necessary to successfully run CMake.
 : "${CMAKE_ONLY:=OFF}"
 # The build generator to use. Defaults to Make.
-: "${BUILD_GENERATOR:="Unix Makefiles"}"
+# : "${BUILD_GENERATOR:="Unix Makefiles"}"
 # Build with -ftrivial-auto-var-init=pattern to catch more bugs caused by
 # uninitialized variables.
 : "${BUILD_AUTO_VAR_INIT_PATTERN:=OFF}"
@@ -109,10 +109,5 @@ sudo apt-get install -y --no-install-recommends ${P4C_DEPS}
 sudo pip3 install --upgrade pip
 sudo pip3 install -r ${P4C_DIR}/requirements.txt
 
-if [ "${BUILD_GENERATOR,,}" == "ninja" ] && [ ! $(command -v ninja) ]
-then
-    echo "Selected ninja as build generator, but ninja could not be found."
-    exit 1
-fi
 
 # ! ------  END CORE -----------------------------------------------

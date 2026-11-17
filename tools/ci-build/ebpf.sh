@@ -43,12 +43,8 @@ set -x  # Make command execution verbose
 # Build with -ftrivial-auto-var-init=pattern to catch more bugs caused by
 # uninitialized variables.
 : "${BUILD_AUTO_VAR_INIT_PATTERN:=OFF}"
-# BMv2 is enable by default.
-: "${ENABLE_BMV2:=ON}"
 # eBPF is enabled by default.
 : "${ENABLE_EBPF:=ON}"
-# P4TC is enabled by default.
-: "${ENABLE_P4TC:=ON}"
 # This is the list of back ends that can be enabled.
 # Back ends can be enabled from the command line with "ENABLE_[backend]=TRUE/FALSE"
 ENABLE_BACKENDS=("TOFINO" "BMV2" "EBPF" "UBPF" "DPDK"

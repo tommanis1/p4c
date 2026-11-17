@@ -176,7 +176,7 @@ cmake ${CMAKE_FLAGS} -G "${BUILD_GENERATOR}" ..
 
 # If CMAKE_ONLY is active, only run CMake. Do not build.
 if [ "$CMAKE_ONLY" == "OFF" ]; then
-  cmake --build . -- -j $(nproc)
+  cmake --build . -- -j $(nproc) -DP4C_USE_PREINSTALLED_PROTOBUF=ON
   sudo cmake --install .
   # Print ccache statistics after building
   ccache -p -s
